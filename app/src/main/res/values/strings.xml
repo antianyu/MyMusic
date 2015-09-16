@@ -1,0 +1,14 @@
+<resources>
+    <string name="app_name">Music</string>
+    <string name="title">Music (共%1$s首)</string>
+    <string name="exit">退出</string>
+    <string name="press_back_to_desktop">再按一次返回桌面</string>
+
+    <string name="refresh">刷新</string>
+    <string name="previous">上一首</string>
+    <string name="play">播放</string>
+    <string name="pause">暂停</string>
+    <string name="next">下一首</string>
+    <string name="no_music">未扫描到任何音乐</string>
+
+</resources>

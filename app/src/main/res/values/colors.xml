@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    
+    <color name="background">#FFF2F4F7</color>
+    <color name="major_dark">#FF0075A9</color>
+    <color name="minor_dark">#FF6AACD6</color>
+    <color name="major_light">#FFFFFFFF</color>
+    
+    <color name="text_title">#FFFFFFFF</color>
+    <color name="text_dark_major">#FF373737</color>
+    <color name="text_dark_minor">#FF999999</color>
+    <color name="text_light">#FFFFFFFF</color>
+
+    <color name="button_dark_pressed">#FF0075A9</color>
+    <color name="button_dark_unpressed">#FF6AACD6</color>
+
+    <color name="divider">#1A000000</color>
+
+    <color name="index_prompt">#AA000000</color>
+    <color name="index_layout_pressed">#AAAAAAAA</color>
+    
+</resources>
