@@ -18,6 +18,7 @@ import java.util.TreeMap;
 
 import classes.model.Music;
 import classes.utils.CharacterParser;
+import classes.utils.LogUtils;
 import classes.utils.Utils;
 import classes.utils.ViewUtils;
 import classes.widget.PinnedSectionListView;
@@ -189,6 +190,8 @@ public class MusicListViewAdapter extends BaseAdapter implements PinnedSectionLi
             musicList.addAll(values);
             count += values.size() + 1;
         }
+
+        LogUtils.tempPrint(indexList);
     }
 
     public void setList(List<Music> musics)

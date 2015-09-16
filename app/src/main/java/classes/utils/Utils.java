@@ -4,11 +4,8 @@ import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
-import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
 
 import java.text.DecimalFormat;
-import java.util.Calendar;
 import java.util.Date;
 
 public class Utils

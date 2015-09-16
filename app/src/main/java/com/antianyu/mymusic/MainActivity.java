@@ -29,6 +29,7 @@ import java.util.List;
 import classes.adapter.MusicListViewAdapter;
 import classes.model.Music;
 import classes.utils.AppPreference;
+import classes.utils.LogUtils;
 import classes.utils.MusicProgressDialog;
 import classes.utils.Utils;
 import classes.utils.ViewUtils;
@@ -333,11 +334,7 @@ public class MainActivity extends AppCompatActivity
                 {
                     if (cursor.moveToNext())
                     {
-                        currentMusic = new Music();
-                        currentMusic.setTitle(getStringFromCursor(cursor, MediaStore.Audio.Media.TITLE));
-                        currentMusic.setArtist(getStringFromCursor(cursor, MediaStore.Audio.Media.ARTIST));
-                        currentMusic.setDuration(getIntFromCursor(cursor, MediaStore.Audio.Media.DURATION) / 1000);
-                        currentMusic.setPath(getStringFromCursor(cursor, MediaStore.Audio.Media.DATA));
+                        currentMusic = getMusicFromCursor(cursor);
                     }
                     cursor.close();
                 }
@@ -365,12 +362,7 @@ public class MainActivity extends AppCompatActivity
                 {
                     while (cursor.moveToNext())
                     {
-                        Music music = new Music();
-                        music.setTitle(getStringFromCursor(cursor, MediaStore.Audio.Media.TITLE));
-                        music.setArtist(getStringFromCursor(cursor, MediaStore.Audio.Media.ARTIST));
-                        music.setDuration(getIntFromCursor(cursor, MediaStore.Audio.Media.DURATION) / 1000);
-                        music.setPath(getStringFromCursor(cursor, MediaStore.Audio.Media.DATA));
-                        musicList.add(music);
+                        musicList.add(getMusicFromCursor(cursor));
                     }
                     cursor.close();
                 }
@@ -395,6 +387,7 @@ public class MainActivity extends AppCompatActivity
                         }
 
                         adapter.setList(musicList);
+                        adapter.notifyDataSetChanged();
                         initIndexLayout();
                         refreshPrompt();
 
@@ -411,6 +404,16 @@ public class MainActivity extends AppCompatActivity
         appPreference.setCurrentMusicPath(music.getPath());
         appPreference.setCurrentPosition(position);
         appPreference.saveAppPreference();
+    }
+
+    private Music getMusicFromCursor(Cursor cursor)
+    {
+        Music music = new Music();
+        music.setTitle(getStringFromCursor(cursor, MediaStore.Audio.Media.TITLE));
+        music.setArtist(getStringFromCursor(cursor, MediaStore.Audio.Media.ARTIST));
+        music.setDuration(getIntFromCursor(cursor, MediaStore.Audio.Media.DURATION) / 1000);
+        music.setPath(getStringFromCursor(cursor, MediaStore.Audio.Media.DATA));
+        return music;
     }
 
     private String getStringFromCursor(Cursor cursor, String columnName)
