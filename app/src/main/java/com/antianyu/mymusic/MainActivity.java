@@ -29,7 +29,6 @@ import java.util.List;
 import classes.adapter.MusicListViewAdapter;
 import classes.model.Music;
 import classes.utils.AppPreference;
-import classes.utils.LogUtils;
 import classes.utils.MusicProgressDialog;
 import classes.utils.Utils;
 import classes.utils.ViewUtils;
