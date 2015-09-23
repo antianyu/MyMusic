@@ -12,7 +12,7 @@ public class AppPreference
 	private Context context = null;
 
     private String currentMusicPath = "";
-    private int currentPosition = 0;
+    private int progress = 0;
     private String musicDirectory = "";
 	
 	private AppPreference(Context context)
@@ -38,7 +38,7 @@ public class AppPreference
 	{
 		SharedPreferences preferences = context.getSharedPreferences("MusicApplication", Application.MODE_PRIVATE);
 		appPreference.setCurrentMusicPath(preferences.getString("currentMusicPath", ""));
-        appPreference.setCurrentPosition(preferences.getInt("currentPosition", 0));
+        appPreference.setProgress(preferences.getInt("progress", 0));
         appPreference.setMusicDirectory(Environment.getExternalStorageDirectory() + "/Music");
 	}
 	
@@ -48,7 +48,7 @@ public class AppPreference
 		AppPreference appPreference = AppPreference.getAppPreference();
 		Editor editor = sharedPreference.edit();
 		editor.putString("currentMusicPath", appPreference.getCurrentMusicPath());
-        editor.putInt("currentPosition", appPreference.getCurrentPosition());
+        editor.putInt("progress", appPreference.getProgress());
         editor.apply();
 	}
 
@@ -61,13 +61,13 @@ public class AppPreference
         this.currentMusicPath = currentMusicPath;
     }
 
-    public int getCurrentPosition()
+    public int getProgress()
     {
-        return currentPosition;
+        return progress;
     }
-    public void setCurrentPosition(int currentPosition)
+    public void setProgress(int progress)
     {
-        this.currentPosition = currentPosition;
+        this.progress = progress;
     }
 
     public String getMusicDirectory()

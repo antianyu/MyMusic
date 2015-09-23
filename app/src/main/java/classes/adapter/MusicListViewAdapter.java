@@ -18,7 +18,6 @@ import java.util.TreeMap;
 
 import classes.model.Music;
 import classes.utils.CharacterParser;
-import classes.utils.LogUtils;
 import classes.utils.Utils;
 import classes.utils.ViewUtils;
 import classes.widget.PinnedSectionListView;
@@ -32,7 +31,7 @@ public class MusicListViewAdapter extends BaseAdapter implements PinnedSectionLi
 	private List<Music> musicList;
     private HashMap<String, Integer> selector = new HashMap<>();
     private ArrayList<Integer> indexList = new ArrayList<>();
-    private int chosenPosition;
+    private int chosenPosition = -1;
     private int chosenMajorColor;
     private int chosenMinorColor;
     private int majorColor;
@@ -190,8 +189,11 @@ public class MusicListViewAdapter extends BaseAdapter implements PinnedSectionLi
             musicList.addAll(values);
             count += values.size() + 1;
         }
+    }
 
-        LogUtils.tempPrint(indexList);
+    public HashMap<String, Integer> getSelector()
+    {
+        return selector;
     }
 
     public void setList(List<Music> musics)
@@ -201,14 +203,19 @@ public class MusicListViewAdapter extends BaseAdapter implements PinnedSectionLi
         initData();
 	}
 
+    public int getChosenPosition()
+    {
+        return chosenPosition;
+    }
+
     public void setChosenPosition(int chosenPosition)
     {
         this.chosenPosition = chosenPosition;
     }
 
-    public HashMap<String, Integer> getSelector()
+    public void setChosenPosition(Music music)
     {
-        return selector;
+        this.chosenPosition = musicList.indexOf(music);
     }
 
     public boolean isMusic(int position)

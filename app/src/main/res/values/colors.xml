@@ -13,6 +13,8 @@
 
     <color name="button_dark_pressed">#FF0075A9</color>
     <color name="button_dark_unpressed">#FF6AACD6</color>
+    <color name="button_light_unpressed">#FFD7D8DB</color>
+    <color name="button_light_pressed">#FFBCBEC0</color>
 
     <color name="divider">#1A000000</color>
 

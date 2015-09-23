@@ -3,18 +3,17 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:background="@color/background"
-    android:paddingTop="14dp"
-    android:paddingBottom="14dp">
+    android:background="@color/background">
 
     <Button
-        android:id="@+id/exitButton"
+        android:id="@+id/deleteButton"
         android:layout_width="match_parent"
         android:layout_height="50dp"
+        android:layout_marginTop="14dp"
         android:layout_marginLeft="10dp"
         android:layout_marginRight="10dp"
         android:background="@drawable/window_button_drawable"
-        android:text="@string/exit"
+        android:text="@string/delete"
         android:textColor="@color/text_light"
         android:textSize="20sp"/>
 

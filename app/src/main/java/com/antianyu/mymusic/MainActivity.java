@@ -1,7 +1,14 @@
 package com.antianyu.mymusic;
 
+import android.app.AlertDialog.Builder;
+import android.content.ComponentName;
+import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.ServiceConnection;
 import android.database.Cursor;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.provider.MediaStore;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
@@ -23,13 +30,16 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 
 import java.io.File;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
 import classes.adapter.MusicListViewAdapter;
 import classes.model.Music;
 import classes.utils.AppPreference;
+import classes.utils.Constant;
 import classes.utils.MusicProgressDialog;
+import classes.utils.MusicService;
 import classes.utils.Utils;
 import classes.utils.ViewUtils;
 import classes.widget.PinnedSectionListView;
@@ -51,6 +61,7 @@ public class MainActivity extends AppCompatActivity
     private TextView progressTextView;
     private TextView durationTextView;
     private PopupWindow exitPopupWindow;
+    private PopupWindow deletePopupWindow;
 
     // Data;
     private static String[] indexLetters = {"A", "B", "C", "D", "E", "F", "G", "H", "I", "J",
@@ -59,6 +70,9 @@ public class MainActivity extends AppCompatActivity
     private AppPreference appPreference;
     private List<Music> musicList = new ArrayList<>();
     private Music currentMusic;
+    private Music chosenMusic;
+    private MusicService musicService;
+    private ServiceConnection connection;
 
     // View
     protected void onCreate(Bundle savedInstanceState)
@@ -94,7 +108,7 @@ public class MainActivity extends AppCompatActivity
         {
             case R.id.action_refresh:
             {
-                scanMusic(false);
+                scanMusic();
                 return true;
             }
         }
@@ -123,17 +137,33 @@ public class MainActivity extends AppCompatActivity
         {
             public void onItemClick(AdapterView<?> parent, View view, int position, long id)
             {
-                if (adapter.isMusic(position))
+                if (adapter.isMusic(position) && (deletePopupWindow == null || !deletePopupWindow.isShowing()))
                 {
                     currentMusic = adapter.getItem(position);
                     setActionView(currentMusic, 0);
-                    saveMusicStatus(currentMusic, 0);
+                    Intent intent = getServiceIntent(Constant.ACTION_CHANGE_MUSIC);
+                    intent.putExtra("music", currentMusic);
+                    intent.putExtra("progress", progressSeekBar.getProgress());
+                    startPlaying(intent);
 
                     adapter.setChosenPosition(position);
                     adapter.notifyDataSetChanged();
                 }
             }
         });
+        musicListView.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener()
+        {
+            public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id)
+            {
+                if (adapter.isMusic(position))
+                {
+                    chosenMusic = adapter.getItem(position);
+                    showDeleteWindow();
+                }
+                return false;
+            }
+        });
+
         promptTextView = (TextView) findViewById(R.id.promptTextView);
 
         indexLayout = (LinearLayout) findViewById(R.id.indexLayout);
@@ -141,8 +171,8 @@ public class MainActivity extends AppCompatActivity
 
         initIndexLayout();
         refreshPrompt();
-
         initExitWindow();
+        initDeleteWindow();
     }
 
     private void initIndexLayout()
@@ -175,7 +205,7 @@ public class MainActivity extends AppCompatActivity
                         if (adapter.getSelector().containsKey(key))
                         {
                             int position = adapter.getSelector().get(key);
-                            musicListView.setSelection(position + musicListView.getHeaderViewsCount());
+                            musicListView.setSelection(position + musicListView.getHeaderViewsCount(), true);
                         }
                     }
                     switch (event.getAction())
@@ -216,7 +246,15 @@ public class MainActivity extends AppCompatActivity
 
             public void onStopTrackingTouch(SeekBar seekBar)
             {
+                appPreference.setProgress(seekBar.getProgress());
+                appPreference.saveAppPreference();
 
+                if (musicService != null)
+                {
+                    Intent intent = getServiceIntent(Constant.ACTION_CHANGE_PROGRESS);
+                    intent.putExtra("progress", seekBar.getProgress());
+                    startService(intent);
+                }
             }
         });
 
@@ -228,7 +266,10 @@ public class MainActivity extends AppCompatActivity
         {
             public void onClick(View v)
             {
-
+                currentMusic = previousMusic();
+                adapter.setChosenPosition(currentMusic);
+                adapter.notifyDataSetChanged();
+                choseMusic();
             }
         });
 
@@ -237,8 +278,10 @@ public class MainActivity extends AppCompatActivity
         {
             public void onClick(View v)
             {
-                playImageView.setVisibility(View.INVISIBLE);
-                pauseImageView.setVisibility(View.VISIBLE);
+                if (Music.exists(currentMusic))
+                {
+                    startPlaying(getServiceIntent(Constant.ACTION_PLAY));
+                }
             }
         });
 
@@ -247,8 +290,7 @@ public class MainActivity extends AppCompatActivity
         {
             public void onClick(View v)
             {
-                pauseImageView.setVisibility(View.INVISIBLE);
-                playImageView.setVisibility(View.VISIBLE);
+                stopPlaying();
                 saveMusicStatus(currentMusic, progressSeekBar.getProgress());
             }
         });
@@ -258,7 +300,10 @@ public class MainActivity extends AppCompatActivity
         {
             public void onClick(View v)
             {
-
+                currentMusic = nextMusic();
+                adapter.setChosenPosition(currentMusic);
+                adapter.notifyDataSetChanged();
+                choseMusic();
             }
         });
     }
@@ -278,7 +323,68 @@ public class MainActivity extends AppCompatActivity
             }
         });
 
+        Button cancelButton = (Button) exitView.findViewById(R.id.cancelButton);
+        cancelButton.setOnClickListener(new View.OnClickListener()
+        {
+            public void onClick(View v)
+            {
+                exitPopupWindow.dismiss();
+            }
+        });
+
         exitPopupWindow = ViewUtils.buildBottomPopupWindow(this, exitView);
+    }
+
+    private void initDeleteWindow()
+    {
+        View deleteView = View.inflate(this, R.layout.window_delete, null);
+
+        Button deleteButton = (Button) deleteView.findViewById(R.id.deleteButton);
+        deleteButton.setOnClickListener(new View.OnClickListener()
+        {
+            public void onClick(View v)
+            {
+                deletePopupWindow.dismiss();
+                Builder builder = new Builder(MainActivity.this);
+                builder.setTitle(R.string.warning);
+                builder.setMessage(String.format(ViewUtils.getString(R.string.delete_confirm), chosenMusic.getTitle()));
+                builder.setPositiveButton(R.string.confirm, new DialogInterface.OnClickListener()
+                {
+                    public void onClick(DialogInterface dialog, int which)
+                    {
+                        File file = new File(chosenMusic.getPath());
+                        if (file.delete())
+                        {
+                            ViewUtils.showToast(MainActivity.this, R.string.succeed_in_deleting);
+                            if (chosenMusic.equals(currentMusic))
+                            {
+                                currentMusic = musicList.size() > 1 ? nextMusic() : new Music();
+                                choseMusic();
+                            }
+                            musicList.remove(chosenMusic);
+                            refreshView();
+
+                            Intent intent = getServiceIntent(Constant.ACTION_CHANGE_MUSIC_LIST);
+                            intent.putExtra("musicList", (Serializable) musicList);
+                            startService(intent);
+                        }
+                    }
+                });
+                builder.setNegativeButton(R.string.cancel, null);
+                builder.create().show();
+            }
+        });
+
+        Button cancelButton = (Button) deleteView.findViewById(R.id.cancelButton);
+        cancelButton.setOnClickListener(new View.OnClickListener()
+        {
+            public void onClick(View v)
+            {
+                deletePopupWindow.dismiss();
+            }
+        });
+
+        deletePopupWindow = ViewUtils.buildBottomPopupWindow(this, deleteView);
     }
 
     private void showExitWindow()
@@ -292,8 +398,20 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
+    private void showDeleteWindow()
+    {
+        if (!deletePopupWindow.isShowing())
+        {
+            deletePopupWindow.showAtLocation(findViewById(R.id.baseLayout), Gravity.BOTTOM, 0, 0);
+            deletePopupWindow.update();
+
+            ViewUtils.dimBackground(this);
+        }
+    }
+
     private void setActionView(Music music, int progress)
     {
+        saveMusicStatus(music, progress);
         titleTextView.setText(music.getTitle());
         artistTextView.setText(music.getArtist());
         progressSeekBar.setMax(music.getDuration());
@@ -302,17 +420,40 @@ public class MainActivity extends AppCompatActivity
         durationTextView.setText(Utils.formatTime(music.getDuration()));
     }
 
+    private void refreshView()
+    {
+        if (!Music.exists(currentMusic))
+        {
+            stopPlaying();
+        }
+        adapter.setList(musicList);
+        adapter.setChosenPosition(currentMusic);
+        adapter.notifyDataSetChanged();
+        initIndexLayout();
+        refreshPrompt();
+        toolbar.setTitle(String.format(ViewUtils.getString(R.string.title), musicList.size()));
+        setListViewSelection();
+    }
+
     private void refreshPrompt()
     {
         int visibility = musicList.isEmpty() ? View.VISIBLE : View.GONE;
         promptTextView.setVisibility(visibility);
     }
 
+    private void setListViewSelection()
+    {
+        if (adapter.getChosenPosition() <= musicListView.getFirstVisiblePosition() || adapter.getChosenPosition() >= musicListView.getLastVisiblePosition())
+        {
+            musicListView.setSelection(adapter.getChosenPosition(), false);
+        }
+    }
+
     // Data
     private void initData()
     {
         appPreference = AppPreference.getAppPreference();
-        scanMusic(true);
+        scanMusic();
     }
 
     private void initCurrentMusic()
@@ -325,9 +466,9 @@ public class MainActivity extends AppCompatActivity
                 Cursor cursor = getContentResolver().query(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
                                                            new String[]{MediaStore.Audio.Media.TITLE, MediaStore.Audio.Media.ARTIST,
                                                                    MediaStore.Audio.Media.DATA, MediaStore.Audio.Media.DURATION},
-                                                           MediaStore.Audio.Media.DATA + " = '" + appPreference.getCurrentMusicPath() + "'",
-                                                           null,
-                                                           MediaStore.Audio.Media.DEFAULT_SORT_ORDER);
+                                                           MediaStore.Audio.Media.DATA + " = ?",
+                                                           new String[]{appPreference.getCurrentMusicPath()},
+                                                           null);
 
                 if(cursor != null)
                 {
@@ -341,7 +482,7 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
-    private void scanMusic(final boolean init)
+    private void scanMusic()
     {
         musicList.clear();
         MusicProgressDialog.show();
@@ -353,9 +494,9 @@ public class MainActivity extends AppCompatActivity
                 Cursor cursor = getContentResolver().query(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
                                                            new String[]{MediaStore.Audio.Media.TITLE, MediaStore.Audio.Media.ARTIST,
                                                                    MediaStore.Audio.Media.DATA, MediaStore.Audio.Media.DURATION},
-                                                           MediaStore.Audio.Media.DATA + " LIKE '" + appPreference.getMusicDirectory() + "%'",
-                                                           null,
-                                                           MediaStore.Audio.Media.DEFAULT_SORT_ORDER);
+                                                           MediaStore.Audio.Media.DATA + " LIKE ?",
+                                                           new String[]{appPreference.getMusicDirectory() + "%"},
+                                                           null);
 
                 if(cursor != null)
                 {
@@ -366,32 +507,56 @@ public class MainActivity extends AppCompatActivity
                     cursor.close();
                 }
 
-                if (init)
-                {
-                    initCurrentMusic();
-                }
+                initCurrentMusic();
+                Music.sortByTitle(musicList);
 
                 runOnUiThread(new Runnable()
                 {
                     public void run()
                     {
-                        if ((currentMusic == null || currentMusic.getPath().isEmpty()) && !musicList.isEmpty())
+                        if (!Music.exists(currentMusic) && !musicList.isEmpty())
                         {
-                            saveMusicStatus(musicList.get(0), 0);
-                            setActionView(musicList.get(0), 0);
+                            currentMusic = musicList.get(0);
+                            setActionView(currentMusic, 0);
                         }
-                        else if (init && currentMusic != null && !currentMusic.getPath().isEmpty())
+                        else if (Music.exists(currentMusic))
                         {
-                            setActionView(currentMusic, appPreference.getCurrentPosition());
+                            setActionView(currentMusic, appPreference.getProgress());
+                        }
+                        else
+                        {
+                            currentMusic = new Music();
+                            setActionView(currentMusic, 0);
                         }
 
-                        adapter.setList(musicList);
-                        adapter.notifyDataSetChanged();
-                        initIndexLayout();
-                        refreshPrompt();
-
-                        toolbar.setTitle(String.format(ViewUtils.getString(R.string.title), musicList.size()));
+                        refreshView();
                         MusicProgressDialog.dismiss();
+
+                        // connect to MusicService
+                        if (connection != null)
+                        {
+                            unbindService(connection);
+                            connection = null;
+                        }
+
+                        connection = new ServiceConnection()
+                        {
+                            public void onServiceConnected(ComponentName name, IBinder service)
+                            {
+                                musicService = ((MusicService.MusicBinder) service).getServices();
+                            }
+
+                            public void onServiceDisconnected(ComponentName name)
+                            {
+                                musicService = null;
+                            }
+                        };
+
+                        Intent bindIntent = new Intent(MainActivity.this, MusicService.class);
+                        bindIntent.putExtra("musicList", (Serializable) musicList);
+                        bindIntent.putExtra("music", currentMusic);
+                        bindIntent.putExtra("progress", progressSeekBar.getProgress());
+                        bindService(bindIntent, connection, Context.BIND_AUTO_CREATE);
                     }
                 });
             }
@@ -401,8 +566,74 @@ public class MainActivity extends AppCompatActivity
     private void saveMusicStatus(Music music, int position)
     {
         appPreference.setCurrentMusicPath(music.getPath());
-        appPreference.setCurrentPosition(position);
+        appPreference.setProgress(position);
         appPreference.saveAppPreference();
+    }
+
+    // Music
+    private void startPlaying(Intent intent)
+    {
+        playImageView.setVisibility(View.INVISIBLE);
+        pauseImageView.setVisibility(View.VISIBLE);
+        startService(intent);
+    }
+
+    private void stopPlaying()
+    {
+        pauseImageView.setVisibility(View.INVISIBLE);
+        playImageView.setVisibility(View.VISIBLE);
+        startService(getServiceIntent(Constant.ACTION_PAUSE));
+    }
+
+    public Music previousMusic()
+    {
+        if (musicList.isEmpty())
+        {
+            return new Music();
+        }
+        else
+        {
+            int chosenPosition = musicList.indexOf(currentMusic);
+            chosenPosition--;
+            if (chosenPosition < 0)
+            {
+                chosenPosition += musicList.size();
+            }
+            return musicList.get(chosenPosition);
+        }
+    }
+
+    public Music nextMusic()
+    {
+        if (musicList.isEmpty())
+        {
+            return new Music();
+        }
+        else
+        {
+            int chosenPosition = musicList.indexOf(currentMusic);
+            chosenPosition++;
+            chosenPosition = chosenPosition % musicList.size();
+            return musicList.get(chosenPosition);
+        }
+    }
+
+    private void choseMusic()
+    {
+        setListViewSelection();
+        setActionView(currentMusic, 0);
+        Intent intent = getServiceIntent(Constant.ACTION_CHANGE_MUSIC);
+        intent.putExtra("music", currentMusic);
+        intent.putExtra("progress", progressSeekBar.getProgress());
+        startPlaying(intent);
+    }
+
+    // Auxiliaries
+    private Intent getServiceIntent(String action)
+    {
+        Intent intent = new Intent(MainActivity.this, MusicService.class);
+        intent.setAction(action);
+        return intent;
     }
 
     private Music getMusicFromCursor(Cursor cursor)

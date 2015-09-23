@@ -40,6 +40,8 @@ import android.widget.SectionIndexer;
 
 import com.antianyu.mymusic.BuildConfig;
 
+import classes.utils.ViewUtils;
+
 /**
  * ListView, which is capable to pin section views at its top while the rest is still scrolled.
  */
@@ -673,5 +675,11 @@ public class PinnedSectionListView extends ListView
             adapter = ((HeaderViewListAdapter) adapter).getWrappedAdapter();
         }
         return ((PinnedSectionListAdapter) adapter).isItemViewTypePinned(viewType);
+    }
+
+    public void setSelection(int position, boolean isIndex)
+    {
+        int y = isIndex ? 0 : ViewUtils.dpToPixel(24);
+        setSelectionFromTop(position, y);
     }
 }
