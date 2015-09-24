@@ -1,10 +1,12 @@
 package com.antianyu.mymusic;
 
 import android.app.AlertDialog.Builder;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.database.Cursor;
 import android.os.Bundle;
@@ -73,6 +75,7 @@ public class MainActivity extends AppCompatActivity
     private Music chosenMusic;
     private MusicService musicService;
     private ServiceConnection connection;
+    private ActionBroadcastReceiver actionBroadcastReceiver;
 
     // View
     protected void onCreate(Bundle savedInstanceState)
@@ -81,6 +84,12 @@ public class MainActivity extends AppCompatActivity
         setContentView(R.layout.activity_main);
         initView();
         initData();
+    }
+
+    protected void onStop()
+    {
+        super.onStop();
+        unregisterReceiver(actionBroadcastReceiver);
     }
 
     public boolean onKeyDown(int keyCode, @NonNull KeyEvent event)
@@ -141,7 +150,7 @@ public class MainActivity extends AppCompatActivity
                 {
                     currentMusic = adapter.getItem(position);
                     setActionView(currentMusic, 0);
-                    Intent intent = getServiceIntent(Constant.ACTION_CHANGE_MUSIC);
+                    Intent intent = getServiceIntent(Constant.ACTION_UPDATE_MUSIC);
                     intent.putExtra("music", currentMusic);
                     intent.putExtra("progress", progressSeekBar.getProgress());
                     startPlaying(intent);
@@ -251,9 +260,9 @@ public class MainActivity extends AppCompatActivity
 
                 if (musicService != null)
                 {
-                    Intent intent = getServiceIntent(Constant.ACTION_CHANGE_PROGRESS);
+                    Intent intent = getServiceIntent(Constant.ACTION_UPDATE_PROGRESS);
                     intent.putExtra("progress", seekBar.getProgress());
-                    startService(intent);
+                    startPlaying(intent);
                 }
             }
         });
@@ -364,7 +373,7 @@ public class MainActivity extends AppCompatActivity
                             musicList.remove(chosenMusic);
                             refreshView();
 
-                            Intent intent = getServiceIntent(Constant.ACTION_CHANGE_MUSIC_LIST);
+                            Intent intent = getServiceIntent(Constant.ACTION_UPDATE_MUSIC_LIST);
                             intent.putExtra("musicList", (Serializable) musicList);
                             startService(intent);
                         }
@@ -420,6 +429,14 @@ public class MainActivity extends AppCompatActivity
         durationTextView.setText(Utils.formatTime(music.getDuration()));
     }
 
+    private void setListViewSelection()
+    {
+        if (adapter.getChosenPosition() <= musicListView.getFirstVisiblePosition() || adapter.getChosenPosition() >= musicListView.getLastVisiblePosition())
+        {
+            musicListView.setSelection(adapter.getChosenPosition(), false);
+        }
+    }
+
     private void refreshView()
     {
         if (!Music.exists(currentMusic))
@@ -441,19 +458,21 @@ public class MainActivity extends AppCompatActivity
         promptTextView.setVisibility(visibility);
     }
 
-    private void setListViewSelection()
-    {
-        if (adapter.getChosenPosition() <= musicListView.getFirstVisiblePosition() || adapter.getChosenPosition() >= musicListView.getLastVisiblePosition())
-        {
-            musicListView.setSelection(adapter.getChosenPosition(), false);
-        }
-    }
-
     // Data
     private void initData()
     {
         appPreference = AppPreference.getAppPreference();
         scanMusic();
+        initBroadcastReceiver();
+    }
+
+    private void initBroadcastReceiver()
+    {
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(Constant.ACTION_UPDATE_MUSIC);
+        filter.addAction(Constant.ACTION_UPDATE_PROGRESS);
+        actionBroadcastReceiver = new ActionBroadcastReceiver();
+        registerReceiver(actionBroadcastReceiver, filter);
     }
 
     private void initCurrentMusic()
@@ -622,13 +641,31 @@ public class MainActivity extends AppCompatActivity
     {
         setListViewSelection();
         setActionView(currentMusic, 0);
-        Intent intent = getServiceIntent(Constant.ACTION_CHANGE_MUSIC);
+        Intent intent = getServiceIntent(Constant.ACTION_UPDATE_MUSIC);
         intent.putExtra("music", currentMusic);
         intent.putExtra("progress", progressSeekBar.getProgress());
         startPlaying(intent);
     }
 
     // Auxiliaries
+    private class ActionBroadcastReceiver extends BroadcastReceiver
+    {
+        public void onReceive(Context context, Intent intent)
+        {
+            if (intent.getAction().equals(Constant.ACTION_UPDATE_MUSIC))
+            {
+                currentMusic = (Music) intent.getSerializableExtra("music");
+                adapter.setChosenPosition(currentMusic);
+                adapter.notifyDataSetChanged();
+                setActionView(currentMusic, 0);
+            }
+            else if (intent.getAction().equals(Constant.ACTION_UPDATE_PROGRESS))
+            {
+                setActionView(currentMusic, intent.getIntExtra("progress", 0));
+            }
+        }
+    }
+
     private Intent getServiceIntent(String action)
     {
         Intent intent = new Intent(MainActivity.this, MusicService.class);

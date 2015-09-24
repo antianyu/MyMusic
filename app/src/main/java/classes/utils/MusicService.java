@@ -14,10 +14,10 @@ public class MusicService extends Service
 {
     private final IBinder binder = new MusicBinder();
     private MediaPlayer mediaPlayer;
-    private int message;
     private int position = 0;
     private List<Music> musicList;
     private int progress;
+    private Thread actionThread;
 
     public void onCreate()
     {
@@ -40,16 +40,18 @@ public class MusicService extends Service
                     mediaPlayer.prepare();
                     mediaPlayer.seekTo(progress * 1000);
                     play();
+                    Intent intent = new Intent(Constant.ACTION_UPDATE_MUSIC);
+                    intent.putExtra("music", musicList.get(position));
+                    sendBroadcast(intent);
                 }
                 catch (Exception ignore)
                 {
 
                 }
-//                Intent intent = new Intent(Constant.ACTION_UPDATE);
-//                intent.putExtra("music", musicList.get(position));
-//                sendBroadcast(intent);
             }
         });
+
+        actionThread = new Thread(new ActionRunnable());
     }
 
     @SuppressWarnings("unchecked")
@@ -80,16 +82,16 @@ public class MusicService extends Service
             case Constant.ACTION_PAUSE:
                 pause();
                 break;
-            case Constant.ACTION_CHANGE_PROGRESS:
+            case Constant.ACTION_UPDATE_PROGRESS:
                 setProgress(intent.getIntExtra("progress", 0));
                 play();
                 break;
-            case Constant.ACTION_CHANGE_MUSIC:
+            case Constant.ACTION_UPDATE_MUSIC:
                 setCurrentMusic((Music) intent.getSerializableExtra("music"));
                 setProgress(intent.getIntExtra("progress", 0));
                 play();
                 break;
-            case Constant.ACTION_CHANGE_MUSIC_LIST:
+            case Constant.ACTION_UPDATE_MUSIC_LIST:
                 setMusicList((List<Music>) intent.getSerializableExtra("musicList"));
                 break;
         }
@@ -129,11 +131,13 @@ public class MusicService extends Service
             else
             {
                 mediaPlayer.reset();
+                actionThread.interrupt();
             }
         }
         catch (Exception e)
         {
             mediaPlayer.reset();
+            actionThread.interrupt();
         }
     }
 
@@ -154,14 +158,17 @@ public class MusicService extends Service
     {
         try
         {
+            actionThread.interrupt();
             if (mediaPlayer != null && !mediaPlayer.isPlaying() && !musicList.isEmpty())
             {
                 mediaPlayer.start();
+                actionThread = new Thread(new ActionRunnable());
+                actionThread.start();
             }
         }
         catch (Exception ignore)
         {
-
+            actionThread.interrupt();
         }
     }
 
@@ -169,6 +176,7 @@ public class MusicService extends Service
     {
         try
         {
+            actionThread.interrupt();
             if (mediaPlayer != null && mediaPlayer.isPlaying())
             {
                 mediaPlayer.pause();
@@ -180,22 +188,24 @@ public class MusicService extends Service
         }
     }
 
-//    private Handler handler = new Handler()
-//    {
-//        public void handleMessage(android.os.Message msg)
-//        {
-//            if (msg.what == 1)
-//            {
-//                if (mediaPlayer != null)
-//                {
-//                    progress = mediaPlayer.getProgress(); // 获取当前音乐播放的位置
-//                    Intent intent = new Intent();
-//                    intent.setAction(Constant.MUSIC_PROGRESS);
-//                    intent.putExtra("progress", progress);
-//                    sendBroadcast(intent); // 给Activity发送广播
-//                    handler.sendEmptyMessageDelayed(1, 1000);
-//                }
-//            }
-//        }
-//    };
+    private class ActionRunnable implements Runnable
+    {
+        public void run()
+        {
+            try
+            {
+                while (mediaPlayer.isPlaying())
+                {
+                    Intent intent = new Intent(Constant.ACTION_UPDATE_PROGRESS);
+                    intent.putExtra("progress", mediaPlayer.getCurrentPosition() / 1000);
+                    sendBroadcast(intent);
+                    Thread.sleep(Constant.UPDATE_INTERVAL);
+                }
+            }
+            catch (Exception e)
+            {
+                e.printStackTrace();
+            }
+        }
+    }
 }
