@@ -10,6 +10,8 @@
     <color name="text_dark_major">#FF373737</color>
     <color name="text_dark_minor">#FF999999</color>
     <color name="text_light">#FFFFFFFF</color>
+    <color name="text_notification_major">#FFCCCCCC</color>
+    <color name="text_notification_minor">#FFAAAAAA</color>
 
     <color name="button_dark_pressed">#FF0075A9</color>
     <color name="button_dark_unpressed">#FF6AACD6</color>

@@ -1,6 +1,9 @@
 package com.antianyu.mymusic;
 
 import android.app.AlertDialog.Builder;
+import android.app.Notification;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -13,6 +16,7 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.provider.MediaStore;
 import android.support.annotation.NonNull;
+import android.support.v4.app.NotificationCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.TypedValue;
@@ -28,6 +32,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.LinearLayout.LayoutParams;
 import android.widget.PopupWindow;
+import android.widget.RemoteViews;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
@@ -64,6 +69,7 @@ public class MainActivity extends AppCompatActivity
     private TextView durationTextView;
     private PopupWindow exitPopupWindow;
     private PopupWindow deletePopupWindow;
+    private Notification notification;
 
     // Data;
     private static String[] indexLetters = {"A", "B", "C", "D", "E", "F", "G", "H", "I", "J",
@@ -76,6 +82,7 @@ public class MainActivity extends AppCompatActivity
     private MusicService musicService;
     private ServiceConnection connection;
     private ActionBroadcastReceiver actionBroadcastReceiver;
+    private NotificationManager manager;
 
     // View
     protected void onCreate(Bundle savedInstanceState)
@@ -86,10 +93,11 @@ public class MainActivity extends AppCompatActivity
         initData();
     }
 
-    protected void onStop()
+    protected void onDestroy()
     {
-        super.onStop();
+        super.onDestroy();
         unregisterReceiver(actionBroadcastReceiver);
+        unbindService(connection);
     }
 
     public boolean onKeyDown(int keyCode, @NonNull KeyEvent event)
@@ -149,7 +157,7 @@ public class MainActivity extends AppCompatActivity
                 if (adapter.isMusic(position) && (deletePopupWindow == null || !deletePopupWindow.isShowing()))
                 {
                     currentMusic = adapter.getItem(position);
-                    setActionView(currentMusic, 0);
+                    setMusicView(currentMusic, 0);
                     Intent intent = getServiceIntent(Constant.ACTION_UPDATE_MUSIC);
                     intent.putExtra("music", currentMusic);
                     intent.putExtra("progress", progressSeekBar.getProgress());
@@ -182,6 +190,7 @@ public class MainActivity extends AppCompatActivity
         refreshPrompt();
         initExitWindow();
         initDeleteWindow();
+        initNotification();
     }
 
     private void initIndexLayout()
@@ -275,10 +284,7 @@ public class MainActivity extends AppCompatActivity
         {
             public void onClick(View v)
             {
-                currentMusic = previousMusic();
-                adapter.setChosenPosition(currentMusic);
-                adapter.notifyDataSetChanged();
-                choseMusic();
+                previous();
             }
         });
 
@@ -287,10 +293,7 @@ public class MainActivity extends AppCompatActivity
         {
             public void onClick(View v)
             {
-                if (Music.exists(currentMusic))
-                {
-                    startPlaying(getServiceIntent(Constant.ACTION_PLAY));
-                }
+                play();
             }
         });
 
@@ -299,8 +302,7 @@ public class MainActivity extends AppCompatActivity
         {
             public void onClick(View v)
             {
-                stopPlaying();
-                saveMusicStatus(currentMusic, progressSeekBar.getProgress());
+                pause();
             }
         });
 
@@ -309,10 +311,7 @@ public class MainActivity extends AppCompatActivity
         {
             public void onClick(View v)
             {
-                currentMusic = nextMusic();
-                adapter.setChosenPosition(currentMusic);
-                adapter.notifyDataSetChanged();
-                choseMusic();
+                next();
             }
         });
     }
@@ -326,9 +325,7 @@ public class MainActivity extends AppCompatActivity
         {
             public void onClick(View v)
             {
-                exitPopupWindow.dismiss();
-                finish();
-                android.os.Process.killProcess(android.os.Process.myPid());
+                close();
             }
         });
 
@@ -367,7 +364,7 @@ public class MainActivity extends AppCompatActivity
                             ViewUtils.showToast(MainActivity.this, R.string.succeed_in_deleting);
                             if (chosenMusic.equals(currentMusic))
                             {
-                                currentMusic = musicList.size() > 1 ? nextMusic() : new Music();
+                                currentMusic = musicList.size() > 1 ? findNextMusic() : new Music();
                                 choseMusic();
                             }
                             musicList.remove(chosenMusic);
@@ -396,6 +393,54 @@ public class MainActivity extends AppCompatActivity
         deletePopupWindow = ViewUtils.buildBottomPopupWindow(this, deleteView);
     }
 
+    private void initNotification()
+    {
+        RemoteViews views = new RemoteViews(getPackageName(), R.layout.view_notification);
+        views.setImageViewResource(R.id.previousImageView, R.drawable.notification_previous);
+        views.setImageViewResource(R.id.playImageView, R.drawable.notification_play);
+        views.setImageViewResource(R.id.pauseImageView, R.drawable.notification_pause);
+        views.setImageViewResource(R.id.nextImageView, R.drawable.notification_next);
+        views.setTextViewText(R.id.titleTextView, getString(R.string.app_name));
+        views.setTextViewText(R.id.artistTextView, getString(R.string.app_name));
+
+        Intent intent = new Intent(Constant.ACTION_PREVIOUS);
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+        views.setOnClickPendingIntent(R.id.previousImageView, pendingIntent);
+
+        intent = new Intent(Constant.ACTION_PLAY);
+        pendingIntent = PendingIntent.getBroadcast(this, 1, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+        views.setOnClickPendingIntent(R.id.playImageView, pendingIntent);
+
+        intent = new Intent(Constant.ACTION_PAUSE);
+        pendingIntent = PendingIntent.getBroadcast(this, 2, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+        views.setOnClickPendingIntent(R.id.pauseImageView, pendingIntent);
+
+        intent = new Intent(Constant.ACTION_NEXT);
+        pendingIntent = PendingIntent.getBroadcast(this, 3, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+        views.setOnClickPendingIntent(R.id.nextImageView, pendingIntent);
+
+        intent = new Intent(Constant.ACTION_CLOSE);
+        pendingIntent = PendingIntent.getBroadcast(this, 4, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+        views.setOnClickPendingIntent(R.id.closeImageView, pendingIntent);
+
+        intent = new Intent(this, MainActivity.class);
+        pendingIntent = PendingIntent.getBroadcast(this, 5, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this);
+        builder.setSmallIcon(R.drawable.ic_launcher);
+        builder.setContentTitle(getString(R.string.app_name));
+        builder.setOngoing(true);
+        builder.setContent(views);
+        builder.setContentIntent(pendingIntent);
+        builder.setAutoCancel(false);
+
+        notification = builder.build();
+        notification.bigContentView = views;
+
+        manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        manager.notify(Constant.NOTIFICATION_ID, notification);
+    }
+
     private void showExitWindow()
     {
         if (!exitPopupWindow.isShowing())
@@ -418,15 +463,20 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
-    private void setActionView(Music music, int progress)
+    private void setMusicView(Music music, int progress)
     {
         saveMusicStatus(music, progress);
+
         titleTextView.setText(music.getTitle());
         artistTextView.setText(music.getArtist());
         progressSeekBar.setMax(music.getDuration());
         progressSeekBar.setProgress(progress);
         progressTextView.setText(Utils.formatTime(progress));
         durationTextView.setText(Utils.formatTime(music.getDuration()));
+
+        notification.contentView.setTextViewText(R.id.titleTextView, music.getTitle());
+        notification.contentView.setTextViewText(R.id.artistTextView, music.getArtist());
+        manager.notify(Constant.NOTIFICATION_ID, notification);
     }
 
     private void setListViewSelection()
@@ -471,6 +521,11 @@ public class MainActivity extends AppCompatActivity
         IntentFilter filter = new IntentFilter();
         filter.addAction(Constant.ACTION_UPDATE_MUSIC);
         filter.addAction(Constant.ACTION_UPDATE_PROGRESS);
+        filter.addAction(Constant.ACTION_PLAY);
+        filter.addAction(Constant.ACTION_PAUSE);
+        filter.addAction(Constant.ACTION_PREVIOUS);
+        filter.addAction(Constant.ACTION_NEXT);
+        filter.addAction(Constant.ACTION_CLOSE);
         actionBroadcastReceiver = new ActionBroadcastReceiver();
         registerReceiver(actionBroadcastReceiver, filter);
     }
@@ -536,16 +591,16 @@ public class MainActivity extends AppCompatActivity
                         if (!Music.exists(currentMusic) && !musicList.isEmpty())
                         {
                             currentMusic = musicList.get(0);
-                            setActionView(currentMusic, 0);
+                            setMusicView(currentMusic, 0);
                         }
                         else if (Music.exists(currentMusic))
                         {
-                            setActionView(currentMusic, appPreference.getProgress());
+                            setMusicView(currentMusic, appPreference.getProgress());
                         }
                         else
                         {
                             currentMusic = new Music();
-                            setActionView(currentMusic, 0);
+                            setMusicView(currentMusic, 0);
                         }
 
                         refreshView();
@@ -590,10 +645,51 @@ public class MainActivity extends AppCompatActivity
     }
 
     // Music
+    private void play()
+    {
+        if (Music.exists(currentMusic))
+        {
+            startPlaying(getServiceIntent(Constant.ACTION_PLAY));
+        }
+    }
+
+    private void pause()
+    {
+        stopPlaying();
+        saveMusicStatus(currentMusic, progressSeekBar.getProgress());
+    }
+
+    private void next()
+    {
+        currentMusic = findNextMusic();
+        adapter.setChosenPosition(currentMusic);
+        adapter.notifyDataSetChanged();
+        choseMusic();
+    }
+
+    private void previous()
+    {
+        currentMusic = findPreviousMusic();
+        adapter.setChosenPosition(currentMusic);
+        adapter.notifyDataSetChanged();
+        choseMusic();
+    }
+
+    private void close()
+    {
+        manager.cancel(Constant.NOTIFICATION_ID);
+        exitPopupWindow.dismiss();
+        finish();
+        android.os.Process.killProcess(android.os.Process.myPid());
+    }
+
     private void startPlaying(Intent intent)
     {
         playImageView.setVisibility(View.INVISIBLE);
         pauseImageView.setVisibility(View.VISIBLE);
+        notification.contentView.setViewVisibility(R.id.playImageView, View.INVISIBLE);
+        notification.contentView.setViewVisibility(R.id.pauseImageView, View.VISIBLE);
+        manager.notify(Constant.NOTIFICATION_ID, notification);
         startService(intent);
     }
 
@@ -601,10 +697,13 @@ public class MainActivity extends AppCompatActivity
     {
         pauseImageView.setVisibility(View.INVISIBLE);
         playImageView.setVisibility(View.VISIBLE);
+        notification.contentView.setViewVisibility(R.id.pauseImageView, View.INVISIBLE);
+        notification.contentView.setViewVisibility(R.id.playImageView, View.VISIBLE);
+        manager.notify(Constant.NOTIFICATION_ID, notification);
         startService(getServiceIntent(Constant.ACTION_PAUSE));
     }
 
-    public Music previousMusic()
+    public Music findPreviousMusic()
     {
         if (musicList.isEmpty())
         {
@@ -622,7 +721,7 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
-    public Music nextMusic()
+    public Music findNextMusic()
     {
         if (musicList.isEmpty())
         {
@@ -640,7 +739,7 @@ public class MainActivity extends AppCompatActivity
     private void choseMusic()
     {
         setListViewSelection();
-        setActionView(currentMusic, 0);
+        setMusicView(currentMusic, 0);
         Intent intent = getServiceIntent(Constant.ACTION_UPDATE_MUSIC);
         intent.putExtra("music", currentMusic);
         intent.putExtra("progress", progressSeekBar.getProgress());
@@ -652,16 +751,46 @@ public class MainActivity extends AppCompatActivity
     {
         public void onReceive(Context context, Intent intent)
         {
-            if (intent.getAction().equals(Constant.ACTION_UPDATE_MUSIC))
+            switch (intent.getAction())
             {
-                currentMusic = (Music) intent.getSerializableExtra("music");
-                adapter.setChosenPosition(currentMusic);
-                adapter.notifyDataSetChanged();
-                setActionView(currentMusic, 0);
-            }
-            else if (intent.getAction().equals(Constant.ACTION_UPDATE_PROGRESS))
-            {
-                setActionView(currentMusic, intent.getIntExtra("progress", 0));
+                case Constant.ACTION_UPDATE_MUSIC:
+                {
+                    currentMusic = (Music) intent.getSerializableExtra("music");
+                    adapter.setChosenPosition(currentMusic);
+                    adapter.notifyDataSetChanged();
+                    setMusicView(currentMusic, 0);
+                    break;
+                }
+                case Constant.ACTION_UPDATE_PROGRESS:
+                {
+                    setMusicView(currentMusic, intent.getIntExtra("progress", 0));
+                    break;
+                }
+                case Constant.ACTION_PLAY:
+                {
+                    play();
+                    break;
+                }
+                case Constant.ACTION_PAUSE:
+                {
+                    pause();
+                    break;
+                }
+                case Constant.ACTION_NEXT:
+                {
+                    next();
+                    break;
+                }
+                case Constant.ACTION_PREVIOUS:
+                {
+                    previous();
+                    break;
+                }
+                case Constant.ACTION_CLOSE:
+                {
+                    close();
+                    break;
+                }
             }
         }
     }

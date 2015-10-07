@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:orientation="horizontal"
+              android:paddingTop="4dp"
+              android:paddingBottom="4dp"
+              android:baselineAligned="false"
+              android:id="@+id/baseLayout">
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:layout_gravity="center_vertical"
+        android:layout_marginLeft="12dp">
+
+        <TextView
+            android:id="@+id/titleTextView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:ellipsize="marquee"
+            android:singleLine="true"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:textColor="@color/text_notification_major"
+            android:textSize="20sp"/>
+
+        <TextView
+            android:id="@+id/artistTextView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:ellipsize="marquee"
+            android:singleLine="true"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:textColor="@color/text_notification_minor"
+            android:textSize="16sp"/>
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginRight="10dp">
+
+        <ImageView
+            android:id="@+id/closeImageView"
+            android:layout_width="@dimen/notification_minor_button_size"
+            android:layout_height="@dimen/notification_minor_button_size"
+            android:layout_gravity="right"
+            android:padding="@dimen/notification_button_padding"
+            android:contentDescription="@string/previous"
+            android:src="@drawable/notification_close"/>
+
+        <RelativeLayout
+            android:layout_width="114dp"
+            android:layout_height="wrap_content"
+            android:layout_alignParentRight="true">
+
+            <ImageView
+                android:id="@+id/previousImageView"
+                android:layout_width="@dimen/notification_minor_button_size"
+                android:layout_height="@dimen/notification_minor_button_size"
+                android:layout_centerVertical="true"
+                android:layout_toLeftOf="@+id/playImageView"
+                android:layout_marginRight="4dp"
+                android:padding="@dimen/notification_button_padding"
+                android:contentDescription="@string/previous"
+                android:src="@drawable/notification_previous"/>
+
+            <ImageView
+                android:id="@+id/playImageView"
+                android:layout_width="@dimen/notification_major_button_size"
+                android:layout_height="@dimen/notification_major_button_size"
+                android:layout_centerInParent="true"
+                android:padding="@dimen/notification_button_padding"
+                android:contentDescription="@string/play"
+                android:src="@drawable/notification_play"/>
+
+            <ImageView
+                android:id="@+id/pauseImageView"
+                android:layout_width="@dimen/notification_major_button_size"
+                android:layout_height="@dimen/notification_major_button_size"
+                android:layout_centerInParent="true"
+                android:padding="@dimen/notification_button_padding"
+                android:contentDescription="@string/pause"
+                android:src="@drawable/notification_pause"
+                android:visibility="gone"/>
+
+            <ImageView
+                android:id="@+id/nextImageView"
+                android:layout_width="@dimen/notification_minor_button_size"
+                android:layout_height="@dimen/notification_minor_button_size"
+                android:layout_centerVertical="true"
+                android:layout_toRightOf="@+id/playImageView"
+                android:layout_marginLeft="4dp"
+                android:padding="@dimen/notification_button_padding"
+                android:contentDescription="@string/next"
+                android:src="@drawable/notification_next"/>
+
+        </RelativeLayout>
+
+    </LinearLayout>
+
+</LinearLayout>

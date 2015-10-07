@@ -6,5 +6,8 @@
     <dimen name="major_button_size">40dp</dimen>
     <dimen name="minor_button_size">30dp</dimen>
 
+    <dimen name="notification_major_button_size">42dp</dimen>
+    <dimen name="notification_minor_button_size">32dp</dimen>
+    <dimen name="notification_button_padding">6dp</dimen>
 
 </resources>
