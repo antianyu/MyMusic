@@ -180,11 +180,12 @@ public class MusicService extends Service
     {
         try
         {
-            actionThread.interrupt();
             if (mediaPlayer != null && !mediaPlayer.isPlaying() && !musicList.isEmpty())
             {
                 mediaPlayer.start();
-                actionThread = new Thread(new ActionRunnable());
+            }
+            if (!actionThread.isAlive())
+            {
                 actionThread.start();
             }
         }
