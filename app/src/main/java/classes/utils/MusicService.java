@@ -11,8 +11,7 @@ import java.util.List;
 
 import classes.model.Music;
 
-public class MusicService extends Service
-{
+public class MusicService extends Service {
     private final IBinder binder = new MusicBinder();
     private MediaPlayer mediaPlayer;
     private int position = 0;
@@ -22,47 +21,36 @@ public class MusicService extends Service
     private boolean sendBroadcast = false;
     private Thread actionThread;
 
-    public void onCreate()
-    {
+    public void onCreate() {
         super.onCreate();
         mediaPlayer = new MediaPlayer();
         mediaPlayer.setWakeMode(MusicApplication.getContext(), PowerManager.PARTIAL_WAKE_LOCK);
-        mediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener()
-        {
-            public void onCompletion(MediaPlayer mp)
-            {
-                try
-                {
+        mediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+            public void onCompletion(MediaPlayer mp) {
+                try {
                     playWhenPrepared = true;
                     sendBroadcast = true;
                     position++;
-                    if (position == musicList.size())
-                    {
+                    if (position == musicList.size()) {
                         position = 0;
                     }
                     progress = 0;
                     mediaPlayer.reset();
                     mediaPlayer.setDataSource(musicList.get(position).getPath());
                     mediaPlayer.prepareAsync();
-                }
-                catch (Exception ignore)
-                {
+                } catch (Exception ignore) {
 
                 }
             }
         });
-        mediaPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener()
-        {
-            public void onPrepared(MediaPlayer mp)
-            {
+        mediaPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
+            public void onPrepared(MediaPlayer mp) {
                 mediaPlayer.seekTo(progress * 1000);
-                if (playWhenPrepared)
-                {
+                if (playWhenPrepared) {
                     playWhenPrepared = false;
                     play();
                 }
-                if (sendBroadcast)
-                {
+                if (sendBroadcast) {
                     sendBroadcast = false;
                     Intent intent = new Intent(Constant.ACTION_UPDATE_MUSIC);
                     intent.putExtra("music", musicList.get(position));
@@ -75,28 +63,22 @@ public class MusicService extends Service
     }
 
     @SuppressWarnings("unchecked")
-    public IBinder onBind(Intent intent)
-    {
+    public IBinder onBind(Intent intent) {
         setMusicList((List<Music>) intent.getSerializableExtra("musicList"));
         setCurrentMusic((Music) intent.getSerializableExtra("music"), intent.getIntExtra("progress", 0));
         return binder;
     }
 
-    public class MusicBinder extends Binder
-    {
-        public MusicService getServices()
-        {
+    public class MusicBinder extends Binder {
+        public MusicService getServices() {
             return MusicService.this;
         }
     }
 
     @SuppressWarnings("unchecked")
-    public int onStartCommand(Intent intent, int flags, int startId)
-    {
-        if (intent != null)
-        {
-            switch (intent.getAction())
-            {
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent != null) {
+            switch (intent.getAction()) {
                 case Constant.ACTION_PLAY:
                     play();
                     break;
@@ -119,114 +101,82 @@ public class MusicService extends Service
         return super.onStartCommand(intent, flags, startId);
     }
 
-    public void onDestroy()
-    {
-        if (mediaPlayer != null)
-        {
+    public void onDestroy() {
+        if (mediaPlayer != null) {
             mediaPlayer.stop();
             mediaPlayer.release();
         }
         super.onDestroy();
     }
 
-    private void setMusicList(List<Music> musicList)
-    {
+    private void setMusicList(List<Music> musicList) {
         this.musicList = musicList;
     }
 
-    private void setCurrentMusic(Music music, int progress)
-    {
-        try
-        {
-            if (Music.exists(music))
-            {
+    private void setCurrentMusic(Music music, int progress) {
+        try {
+            if (MusicUtils.exists(music)) {
                 this.position = musicList.indexOf(music);
-                if (position < 0)
-                {
+                if (position < 0) {
                     position = 0;
                 }
                 this.progress = progress;
                 mediaPlayer.reset();
                 mediaPlayer.setDataSource(musicList.get(position).getPath());
                 mediaPlayer.prepareAsync();
-            }
-            else
-            {
+            } else {
                 mediaPlayer.reset();
                 actionThread.interrupt();
             }
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             mediaPlayer.reset();
             actionThread.interrupt();
         }
     }
 
-    private void setProgress(int progress)
-    {
+    private void setProgress(int progress) {
         this.progress = progress;
-        try
-        {
+        try {
             mediaPlayer.seekTo(progress * 1000);
-        }
-        catch (Exception ignore)
-        {
+        } catch (Exception ignore) {
 
         }
     }
 
-    private void play()
-    {
-        try
-        {
-            if (mediaPlayer != null && !mediaPlayer.isPlaying() && !musicList.isEmpty())
-            {
+    private void play() {
+        try {
+            if (mediaPlayer != null && !mediaPlayer.isPlaying() && !musicList.isEmpty()) {
                 mediaPlayer.start();
             }
-            if (!actionThread.isAlive())
-            {
+            if (!actionThread.isAlive()) {
                 actionThread.start();
             }
-        }
-        catch (Exception ignore)
-        {
+        } catch (Exception ignore) {
             actionThread.interrupt();
         }
     }
 
-    private void pause()
-    {
-        try
-        {
+    private void pause() {
+        try {
             actionThread.interrupt();
-            if (mediaPlayer != null && mediaPlayer.isPlaying())
-            {
+            if (mediaPlayer != null && mediaPlayer.isPlaying()) {
                 mediaPlayer.pause();
             }
-        }
-        catch (Exception ignore)
-        {
+        } catch (Exception ignore) {
 
         }
     }
 
-    private class ActionRunnable implements Runnable
-    {
-        public void run()
-        {
-            try
-            {
-                while (mediaPlayer.isPlaying())
-                {
+    private class ActionRunnable implements Runnable {
+        public void run() {
+            try {
+                while (mediaPlayer.isPlaying()) {
                     Intent intent = new Intent(Constant.ACTION_UPDATE_PROGRESS);
                     intent.putExtra("progress", mediaPlayer.getCurrentPosition() / 1000);
                     sendBroadcast(intent);
                     Thread.sleep(Constant.UPDATE_INTERVAL);
                 }
-            }
-            catch (Exception ignore)
-            {
+            } catch (Exception ignore) {
 
             }
         }

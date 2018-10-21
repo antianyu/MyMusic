@@ -1,7 +1,6 @@
 package classes.utils;
 
-public class Constant
-{
+public class Constant {
     public static final int UPDATE_INTERVAL = 200;
     public static final int NOTIFICATION_ID = 19901228;
     public static final String ACTION_PLAY = "action_play";
