@@ -20,7 +20,7 @@
         android:layout_height="0dp"
         android:layout_weight="1">
 
-        <classes.widget.PinnedSectionListView
+        <com.antianyu.mymusic.widget.PinnedSectionListView
             android:id="@+id/musicListView"
             android:layout_width="match_parent"
             android:layout_height="match_parent"/>
@@ -59,10 +59,10 @@
 
     </RelativeLayout>
 
-    <include
+    <View
         android:layout_width="match_parent"
         android:layout_height="0.5dp"
-        layout="@layout/view_divider"/>
+        android:background="@color/divider"/>
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -173,7 +173,7 @@
                     android:layout_centerInParent="true"
                     android:contentDescription="@string/pause"
                     android:src="@drawable/pause"
-                    android:visibility="gone"/>
+                    android:visibility="invisible"/>
 
                 <ImageView
                     android:id="@+id/nextImageView"

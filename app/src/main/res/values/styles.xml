@@ -25,9 +25,4 @@
         <item name="android:backgroundDimEnabled">true</item>  <!-- 背景是否模糊显示 -->
     </style>
 
-    <style name="WindowBottomAnimation" parent="android:Animation">
-        <item name="android:windowEnterAnimation">@anim/window_vertical_bottom_in</item>
-        <item name="android:windowExitAnimation">@anim/window_vertical_bottom_out</item>
-    </style>
-
 </resources>

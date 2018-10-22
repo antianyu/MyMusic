@@ -1,12 +1,11 @@
 <resources>
     <string name="app_name">Music</string>
+    <string name="press_back_to_exit">再按一次退出</string>
     <string name="title">Music (共%1$s首)</string>
     <string name="exit">退出</string>
     <string name="delete">删除</string>
-    <string name="warning">警告</string>
     <string name="confirm">确定</string>
     <string name="cancel">取消</string>
-    <string name="press_back_to_desktop">再按一次返回桌面</string>
     <string name="delete_confirm">是否确定要删除「%1$s」?</string>
     <string name="succeed_in_deleting">删除成功</string>
 

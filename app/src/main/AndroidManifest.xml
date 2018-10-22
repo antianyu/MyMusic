@@ -8,7 +8,7 @@
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
 
     <application
-        android:name="classes.utils.MusicApplication"
+        android:name=".utils.MusicApplication"
         android:allowBackup="true"
         android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"
@@ -24,7 +24,7 @@
         </activity>
 
         <service
-            android:name="classes.utils.MusicService"
+            android:name=".utils.MusicService"
             android:enabled="true"
             android:permission="com.antianyu.MUSIC_SERVICE_PERMISSION"/>
 
