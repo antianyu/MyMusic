@@ -1,14 +1,12 @@
 apply plugin: 'com.android.application'
-apply plugin: 'me.tatarka.retrolambda'
-
 android {
-    compileSdkVersion 25
-    buildToolsVersion "26.0.2"
+    compileSdkVersion 26
+    buildToolsVersion '27.0.3'
 
     defaultConfig {
         applicationId "com.antianyu.mymusic"
         minSdkVersion 19
-        targetSdkVersion 25
+        targetSdkVersion 26
         versionCode 1
         versionName "1.0"
     }
@@ -23,9 +21,16 @@ android {
         targetCompatibility JavaVersion.VERSION_1_8
     }
 }
-
 dependencies {
-    compile 'com.android.support:appcompat-v7:25.4.0'
-    compile files('libs/pinyin4j-2.5.0.jar')
-    compile 'org.projectlombok:lombok:1.18.0'
+    compile fileTree(include: ['*.jar'], dir: 'libs')
+    compile 'com.android.support:appcompat-v7:27.1.1'
+    compile 'com.android.support:support-v4:27.1.1'
+    compile 'com.jakewharton:butterknife:8.5.1'
+    provided 'org.projectlombok:lombok:1.18.2'
+    annotationProcessor 'com.jakewharton:butterknife-compiler:8.5.1'
+    annotationProcessor 'org.projectlombok:lombok:1.18.2'
+}
+
+repositories {
+    mavenCentral()
 }

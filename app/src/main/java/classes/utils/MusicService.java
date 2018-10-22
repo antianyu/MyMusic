@@ -12,6 +12,11 @@ import java.util.List;
 import classes.model.Music;
 
 public class MusicService extends Service {
+
+    public static final String KEY_MUSIC_LIST = "musicList";
+    public static final String KEY_MUSIC = "music";
+    public static final String KEY_PROGRESS = "progress";
+
     private final IBinder binder = new MusicBinder();
     private MediaPlayer mediaPlayer;
     private int position = 0;
@@ -25,37 +30,33 @@ public class MusicService extends Service {
         super.onCreate();
         mediaPlayer = new MediaPlayer();
         mediaPlayer.setWakeMode(MusicApplication.getContext(), PowerManager.PARTIAL_WAKE_LOCK);
-        mediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
-            public void onCompletion(MediaPlayer mp) {
-                try {
-                    playWhenPrepared = true;
-                    sendBroadcast = true;
-                    position++;
-                    if (position == musicList.size()) {
-                        position = 0;
-                    }
-                    progress = 0;
-                    mediaPlayer.reset();
-                    mediaPlayer.setDataSource(musicList.get(position).getPath());
-                    mediaPlayer.prepareAsync();
-                } catch (Exception ignore) {
-
+        mediaPlayer.setOnCompletionListener(mp -> {
+            try {
+                playWhenPrepared = true;
+                sendBroadcast = true;
+                position++;
+                if (position == musicList.size()) {
+                    position = 0;
                 }
+                progress = 0;
+                mediaPlayer.reset();
+                mediaPlayer.setDataSource(musicList.get(position).getPath());
+                mediaPlayer.prepareAsync();
+            } catch (Exception ignore) {
+
             }
         });
-        mediaPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
-            public void onPrepared(MediaPlayer mp) {
-                mediaPlayer.seekTo(progress * 1000);
-                if (playWhenPrepared) {
-                    playWhenPrepared = false;
-                    play();
-                }
-                if (sendBroadcast) {
-                    sendBroadcast = false;
-                    Intent intent = new Intent(Constant.ACTION_UPDATE_MUSIC);
-                    intent.putExtra("music", musicList.get(position));
-                    sendBroadcast(intent);
-                }
+        mediaPlayer.setOnPreparedListener(mp -> {
+            mediaPlayer.seekTo(progress * 1000);
+            if (playWhenPrepared) {
+                playWhenPrepared = false;
+                play();
+            }
+            if (sendBroadcast) {
+                sendBroadcast = false;
+                Intent intent = new Intent(Constant.ACTION_UPDATE_MUSIC);
+                intent.putExtra(MusicService.KEY_MUSIC, musicList.get(position));
+                sendBroadcast(intent);
             }
         });
 
@@ -64,8 +65,9 @@ public class MusicService extends Service {
 
     @SuppressWarnings("unchecked")
     public IBinder onBind(Intent intent) {
-        setMusicList((List<Music>) intent.getSerializableExtra("musicList"));
-        setCurrentMusic((Music) intent.getSerializableExtra("music"), intent.getIntExtra("progress", 0));
+        int progress = intent.getIntExtra(MusicService.KEY_PROGRESS, 0);
+        setMusicList((List<Music>) intent.getSerializableExtra(MusicService.KEY_MUSIC_LIST));
+        setCurrentMusic((Music) intent.getSerializableExtra(MusicService.KEY_MUSIC), progress);
         return binder;
     }
 
@@ -86,15 +88,16 @@ public class MusicService extends Service {
                     pause();
                     break;
                 case Constant.ACTION_UPDATE_PROGRESS:
-                    setProgress(intent.getIntExtra("progress", 0));
+                    setProgress(intent.getIntExtra(MusicService.KEY_PROGRESS, 0));
                     play();
                     break;
                 case Constant.ACTION_UPDATE_MUSIC:
                     playWhenPrepared = true;
-                    setCurrentMusic((Music) intent.getSerializableExtra("music"), intent.getIntExtra("progress", 0));
+                    int progress = intent.getIntExtra(MusicService.KEY_PROGRESS, 0);
+                    setCurrentMusic((Music) intent.getSerializableExtra(MusicService.KEY_MUSIC), progress);
                     break;
                 case Constant.ACTION_UPDATE_MUSIC_LIST:
-                    setMusicList((List<Music>) intent.getSerializableExtra("musicList"));
+                    setMusicList((List<Music>) intent.getSerializableExtra(MusicService.KEY_MUSIC_LIST));
                     break;
             }
         }
@@ -162,9 +165,7 @@ public class MusicService extends Service {
             if (mediaPlayer != null && mediaPlayer.isPlaying()) {
                 mediaPlayer.pause();
             }
-        } catch (Exception ignore) {
-
-        }
+        } catch (Exception ignore) {}
     }
 
     private class ActionRunnable implements Runnable {
@@ -172,7 +173,7 @@ public class MusicService extends Service {
             try {
                 while (mediaPlayer.isPlaying()) {
                     Intent intent = new Intent(Constant.ACTION_UPDATE_PROGRESS);
-                    intent.putExtra("progress", mediaPlayer.getCurrentPosition() / 1000);
+                    intent.putExtra(MusicService.KEY_PROGRESS, mediaPlayer.getCurrentPosition() / 1000);
                     sendBroadcast(intent);
                     Thread.sleep(Constant.UPDATE_INTERVAL);
                 }

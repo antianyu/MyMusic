@@ -1,5 +1,6 @@
 package com.antianyu.mymusic;
 
+import android.annotation.SuppressLint;
 import android.app.AlertDialog.Builder;
 import android.app.Notification;
 import android.app.NotificationManager;
@@ -16,6 +17,7 @@ import android.support.annotation.NonNull;
 import android.support.v4.app.NotificationCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.text.TextUtils;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.KeyEvent;
@@ -37,6 +39,8 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
+import butterknife.BindView;
+import butterknife.ButterKnife;
 import classes.adapter.MusicListViewAdapter;
 import classes.model.Music;
 import classes.utils.AppPreference;
@@ -51,28 +55,24 @@ import classes.widget.PinnedSectionListView;
 public class MainActivity extends AppCompatActivity {
 
     // Widget
-    private Toolbar toolbar;
-    private MusicListViewAdapter adapter;
-    private PinnedSectionListView musicListView;
-    private TextView promptTextView;
-    private LinearLayout indexLayout;
-    private TextView centralTextView;
-    private ImageView playImageView;
-    private ImageView pauseImageView;
-    private TextView titleTextView;
-    private TextView artistTextView;
-    private SeekBar progressSeekBar;
-    private TextView progressTextView;
-    private TextView durationTextView;
+    @BindView(R.id.toolbar) Toolbar toolbar;
+    @BindView(R.id.musicListView) PinnedSectionListView musicListView;
+    @BindView(R.id.promptTextView) TextView promptTextView;
+    @BindView(R.id.indexLayout) LinearLayout indexLayout;
+    @BindView(R.id.centralTextView) TextView centralTextView;
+    @BindView(R.id.playImageView) ImageView playImageView;
+    @BindView(R.id.pauseImageView) ImageView pauseImageView;
+    @BindView(R.id.titleTextView) TextView titleTextView;
+    @BindView(R.id.artistTextView) TextView artistTextView;
+    @BindView(R.id.progressSeekBar) SeekBar progressSeekBar;
+    @BindView(R.id.progressTextView) TextView progressTextView;
+    @BindView(R.id.durationTextView) TextView durationTextView;
+
     private PopupWindow exitPopupWindow;
     private PopupWindow deletePopupWindow;
     private Notification notification;
-
-    // Data
-    private static final String[] INDEX_LETTERS = {
-        "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V",
-        "W", "X", "Y", "Z", "#"
-    };
+    private MusicListViewAdapter adapter;
+    private MusicProgressDialog progressDialog;
 
     private AppPreference appPreference;
     private List<Music> musicList = new ArrayList<>();
@@ -87,6 +87,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        ButterKnife.bind(this);
         initView();
         initData();
     }
@@ -127,23 +128,19 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initView() {
-        MusicProgressDialog.setContext(this);
-
-        toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
         initActionView();
 
         adapter = new MusicListViewAdapter(this, musicList);
-        musicListView = (PinnedSectionListView) findViewById(R.id.musicListView);
         musicListView.setAdapter(adapter);
         musicListView.setOnItemClickListener((parent, view, position, id) -> {
             if (adapter.isMusic(position) && (deletePopupWindow == null || !deletePopupWindow.isShowing())) {
-                currentMusic = adapter.getItem(position);
+                currentMusic = (Music) adapter.getItem(position);
                 setMusicView(currentMusic, 0);
                 Intent intent = getServiceIntent(Constant.ACTION_UPDATE_MUSIC);
-                intent.putExtra("music", currentMusic);
-                intent.putExtra("progress", progressSeekBar.getProgress());
+                intent.putExtra(MusicService.KEY_MUSIC, currentMusic);
+                intent.putExtra(MusicService.KEY_PROGRESS, progressSeekBar.getProgress());
                 startPlaying(intent);
 
                 adapter.setChosenPosition(position);
@@ -152,16 +149,11 @@ public class MainActivity extends AppCompatActivity {
         });
         musicListView.setOnItemLongClickListener((parent, view, position, id) -> {
             if (adapter.isMusic(position)) {
-                chosenMusic = adapter.getItem(position);
+                chosenMusic = (Music) adapter.getItem(position);
                 showDeleteWindow();
             }
             return false;
         });
-
-        promptTextView = (TextView) findViewById(R.id.promptTextView);
-
-        indexLayout = (LinearLayout) findViewById(R.id.indexLayout);
-        centralTextView = (TextView) findViewById(R.id.centralTextView);
 
         initIndexLayout();
         refreshPrompt();
@@ -170,13 +162,14 @@ public class MainActivity extends AppCompatActivity {
         initNotification();
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     private void initIndexLayout() {
         indexLayout.removeAllViews();
         final int height = (ViewUtils.getPhoneWindowHeight() - ViewUtils.dpToPixel(110) - ViewUtils.getStatusBarHeight()
-            - ViewUtils.getActionBarHeight()) / INDEX_LETTERS.length;
+            - ViewUtils.getActionBarHeight()) / MusicUtils.INDEX_LETTERS.length;
 
         LayoutParams params = new LayoutParams(LayoutParams.MATCH_PARENT, height);
-        for (String string : INDEX_LETTERS) {
+        for (String string : MusicUtils.INDEX_LETTERS) {
             TextView textView = new TextView(this);
             textView.setLayoutParams(params);
             textView.setTextColor(ViewUtils.getColor(R.color.text_dark_major));
@@ -188,12 +181,13 @@ public class MainActivity extends AppCompatActivity {
             indexLayout.setOnTouchListener((v, event) -> {
                 float y = event.getY();
                 int index = (int) (y / height);
-                if (index > -1 && index < INDEX_LETTERS.length) {
-                    String key = INDEX_LETTERS[index];
+                if (index > -1 && index < MusicUtils.INDEX_LETTERS.length) {
+                    String key = MusicUtils.INDEX_LETTERS[index];
                     centralTextView.setVisibility(View.VISIBLE);
                     centralTextView.setText(key);
-                    if (adapter.getSelector().containsKey(key)) {
-                        int position = adapter.getSelector().get(key);
+
+                    int position = adapter.getPosition(key);
+                    if (position >= 0) {
                         musicListView.setSelection(position + musicListView.getHeaderViewsCount(), true);
                     }
                 }
@@ -214,18 +208,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initActionView() {
-        titleTextView = (TextView) findViewById(R.id.titleTextView);
-        artistTextView = (TextView) findViewById(R.id.artistTextView);
-
-        progressSeekBar = (SeekBar) findViewById(R.id.progressSeekBar);
         progressSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 progressTextView.setText(Utils.formatTime(progress));
             }
 
-            public void onStartTrackingTouch(SeekBar seekBar) {
-
-            }
+            public void onStartTrackingTouch(SeekBar seekBar) {}
 
             public void onStopTrackingTouch(SeekBar seekBar) {
                 appPreference.setProgress(seekBar.getProgress());
@@ -233,35 +222,30 @@ public class MainActivity extends AppCompatActivity {
 
                 if (musicService != null) {
                     Intent intent = getServiceIntent(Constant.ACTION_UPDATE_PROGRESS);
-                    intent.putExtra("progress", seekBar.getProgress());
+                    intent.putExtra(MusicService.KEY_PROGRESS, seekBar.getProgress());
                     startPlaying(intent);
                 }
             }
         });
 
-        progressTextView = (TextView) findViewById(R.id.progressTextView);
-        durationTextView = (TextView) findViewById(R.id.durationTextView);
-
-        ImageView previousImageView = (ImageView) findViewById(R.id.previousImageView);
+        ImageView previousImageView = findViewById(R.id.previousImageView);
         previousImageView.setOnClickListener(v -> previous());
 
-        playImageView = (ImageView) findViewById(R.id.playImageView);
         playImageView.setOnClickListener(v -> play());
 
-        pauseImageView = (ImageView) findViewById(R.id.pauseImageView);
         pauseImageView.setOnClickListener(v -> pause());
 
-        ImageView nextImageView = (ImageView) findViewById(R.id.nextImageView);
+        ImageView nextImageView = findViewById(R.id.nextImageView);
         nextImageView.setOnClickListener(v -> next());
     }
 
     private void initExitWindow() {
         View exitView = View.inflate(this, R.layout.window_exit, null);
 
-        Button exitButton = (Button) exitView.findViewById(R.id.exitButton);
+        Button exitButton = exitView.findViewById(R.id.exitButton);
         exitButton.setOnClickListener(v -> close());
 
-        Button cancelButton = (Button) exitView.findViewById(R.id.cancelButton);
+        Button cancelButton = exitView.findViewById(R.id.cancelButton);
         cancelButton.setOnClickListener(v -> exitPopupWindow.dismiss());
 
         exitPopupWindow = ViewUtils.buildBottomPopupWindow(this, exitView);
@@ -270,33 +254,33 @@ public class MainActivity extends AppCompatActivity {
     private void initDeleteWindow() {
         View deleteView = View.inflate(this, R.layout.window_delete, null);
 
-        Button deleteButton = (Button) deleteView.findViewById(R.id.deleteButton);
+        Button deleteButton = deleteView.findViewById(R.id.deleteButton);
         deleteButton.setOnClickListener(v -> {
             deletePopupWindow.dismiss();
-            Builder builder = new Builder(MainActivity.this);
-            builder.setTitle(R.string.warning);
-            builder.setMessage(String.format(ViewUtils.getString(R.string.delete_confirm), chosenMusic.getTitle()));
-            builder.setPositiveButton(R.string.confirm, (dialog, which) -> {
-                File file = new File(chosenMusic.getPath());
-                if (file.delete()) {
-                    ViewUtils.showToast(R.string.succeed_in_deleting);
-                    if (chosenMusic.equals(currentMusic)) {
-                        currentMusic = musicList.size() > 1 ? findNextMusic() : new Music();
-                        choseMusic();
-                    }
-                    musicList.remove(chosenMusic);
-                    refreshView();
+            new Builder(MainActivity.this)
+                .setTitle(R.string.warning)
+                .setMessage(String.format(ViewUtils.getString(R.string.delete_confirm), chosenMusic.getTitle()))
+                .setPositiveButton(R.string.confirm, (dialog, which) -> {
+                    File file = new File(chosenMusic.getPath());
+                    if (file.delete()) {
+                        ViewUtils.showToast(R.string.succeed_in_deleting);
+                        if (chosenMusic.equals(currentMusic)) {
+                            currentMusic = musicList.size() > 1 ? findNextMusic() : new Music();
+                            choseMusic();
+                        }
+                        musicList.remove(chosenMusic);
+                        refreshView();
 
-                    Intent intent = getServiceIntent(Constant.ACTION_UPDATE_MUSIC_LIST);
-                    intent.putExtra("musicList", (Serializable) musicList);
-                    startService(intent);
-                }
-            });
-            builder.setNegativeButton(R.string.cancel, null);
-            builder.create().show();
+                        Intent intent = getServiceIntent(Constant.ACTION_UPDATE_MUSIC_LIST);
+                        intent.putExtra(MusicService.KEY_MUSIC_LIST, (Serializable) musicList);
+                        startService(intent);
+                    }
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
         });
 
-        Button cancelButton = (Button) deleteView.findViewById(R.id.cancelButton);
+        Button cancelButton = deleteView.findViewById(R.id.cancelButton);
         cancelButton.setOnClickListener(v -> deletePopupWindow.dismiss());
 
         deletePopupWindow = ViewUtils.buildBottomPopupWindow(this, deleteView);
@@ -334,19 +318,20 @@ public class MainActivity extends AppCompatActivity {
         intent = new Intent(this, MainActivity.class);
         pendingIntent = PendingIntent.getBroadcast(this, 5, intent, PendingIntent.FLAG_UPDATE_CURRENT);
 
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(this);
-        builder.setSmallIcon(R.drawable.ic_launcher);
-        builder.setContentTitle(getString(R.string.app_name));
-        builder.setOngoing(true);
-        builder.setContent(views);
-        builder.setContentIntent(pendingIntent);
-        builder.setAutoCancel(false);
-
-        notification = builder.build();
+        notification = new NotificationCompat.Builder(this, "MyMusic")
+            .setSmallIcon(R.drawable.ic_launcher)
+            .setContentTitle(getString(R.string.app_name))
+            .setOngoing(true)
+            .setContent(views)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(false)
+            .build();
         notification.bigContentView = views;
 
         manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        manager.notify(Constant.NOTIFICATION_ID, notification);
+        if (manager != null) {
+            manager.notify(Constant.NOTIFICATION_ID, notification);
+        }
     }
 
     private void showExitWindow() {
@@ -429,7 +414,10 @@ public class MainActivity extends AppCompatActivity {
 
     private void scanMusic() {
         musicList.clear();
-        MusicProgressDialog.show();
+        if (progressDialog == null) {
+            progressDialog = new MusicProgressDialog(this);
+        }
+        progressDialog.show();
 
         new Thread(() -> {
             musicList = MusicUtils.getAllMusics();
@@ -448,7 +436,7 @@ public class MainActivity extends AppCompatActivity {
                 }
 
                 refreshView();
-                MusicProgressDialog.dismiss();
+                progressDialog.dismiss();
 
                 // connect to MusicService
                 if (connection != null) {
@@ -467,9 +455,9 @@ public class MainActivity extends AppCompatActivity {
                 };
 
                 Intent bindIntent = new Intent(MainActivity.this, MusicService.class);
-                bindIntent.putExtra("musicList", (Serializable) musicList);
-                bindIntent.putExtra("music", currentMusic);
-                bindIntent.putExtra("progress", progressSeekBar.getProgress());
+                bindIntent.putExtra(MusicService.KEY_MUSIC_LIST, (Serializable) musicList);
+                bindIntent.putExtra(MusicService.KEY_MUSIC, currentMusic);
+                bindIntent.putExtra(MusicService.KEY_PROGRESS, progressSeekBar.getProgress());
                 bindService(bindIntent, connection, Context.BIND_AUTO_CREATE);
             });
         }).start();
@@ -560,8 +548,8 @@ public class MainActivity extends AppCompatActivity {
         setListViewSelection();
         setMusicView(currentMusic, 0);
         Intent intent = getServiceIntent(Constant.ACTION_UPDATE_MUSIC);
-        intent.putExtra("music", currentMusic);
-        intent.putExtra("progress", progressSeekBar.getProgress());
+        intent.putExtra(MusicService.KEY_MUSIC, currentMusic);
+        intent.putExtra(MusicService.KEY_PROGRESS, progressSeekBar.getProgress());
         startPlaying(intent);
     }
 
@@ -569,16 +557,20 @@ public class MainActivity extends AppCompatActivity {
     private class ActionBroadcastReceiver extends BroadcastReceiver {
 
         public void onReceive(Context context, Intent intent) {
+            if (TextUtils.isEmpty(intent.getAction())) {
+                return;
+            }
+
             switch (intent.getAction()) {
                 case Constant.ACTION_UPDATE_MUSIC: {
-                    currentMusic = (Music) intent.getSerializableExtra("music");
+                    currentMusic = (Music) intent.getSerializableExtra(MusicService.KEY_MUSIC);
                     adapter.setChosenMusic(currentMusic);
                     adapter.notifyDataSetChanged();
                     setMusicView(currentMusic, 0);
                     break;
                 }
                 case Constant.ACTION_UPDATE_PROGRESS: {
-                    setMusicView(currentMusic, intent.getIntExtra("progress", 0));
+                    setMusicView(currentMusic, intent.getIntExtra(MusicService.KEY_PROGRESS, 0));
                     break;
                 }
                 case Constant.ACTION_PLAY: {

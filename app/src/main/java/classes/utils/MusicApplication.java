@@ -18,7 +18,6 @@ public class MusicApplication extends Application {
 
     private void initData() {
         context = getApplicationContext();
-        MusicProgressDialog.init(context);
         AppPreference.createAppPreference(context);
     }
 }

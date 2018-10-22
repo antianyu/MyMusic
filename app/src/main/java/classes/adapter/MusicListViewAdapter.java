@@ -15,8 +15,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
+import butterknife.BindView;
+import butterknife.ButterKnife;
 import classes.model.Music;
-import classes.utils.CharacterParser;
 import classes.utils.MusicUtils;
 import classes.utils.Utils;
 import classes.utils.ViewUtils;
@@ -31,7 +32,7 @@ public class MusicListViewAdapter extends BaseAdapter implements PinnedSectionLi
 
     private LayoutInflater layoutInflater;
     private List<Music> musicList;
-    @Getter private HashMap<String, Integer> selector = new HashMap<>();
+    private HashMap<String, Integer> selector = new HashMap<>();
     private ArrayList<Integer> indexList = new ArrayList<>();
 
     @Getter @Setter private int chosenPosition = -1;
@@ -50,8 +51,29 @@ public class MusicListViewAdapter extends BaseAdapter implements PinnedSectionLi
         initData();
     }
 
+    @Override
+    public boolean isItemViewTypePinned(int viewType) {
+        return viewType == VIEW_TYPE_HEADER;
+    }
+
+    @Override
+    public int getCount() {
+        return musicList.size();
+    }
+
+    @Override
+    public Object getItem(int position) {
+        return musicList.get(position);
+    }
+
+    @Override
+    public long getItemId(int position) {
+        return position;
+    }
+
+    @Override
     public View getView(int position, View convertView, ViewGroup parent) {
-        Music music = getItem(position);
+        Music music = (Music) getItem(position);
         if (getItemViewType(position) == VIEW_TYPE_HEADER) {
             HeaderViewHolder viewHolder;
             if (convertView == null) {
@@ -71,9 +93,6 @@ public class MusicListViewAdapter extends BaseAdapter implements PinnedSectionLi
                 convertView = layoutInflater.inflate(R.layout.list_music, parent, false);
 
                 viewHolder = new MusicViewHolder(convertView);
-                viewHolder.nameTextView = (TextView) convertView.findViewById(R.id.nameTextView);
-                viewHolder.artistTextView = (TextView) convertView.findViewById(R.id.artistTextView);
-                viewHolder.durationTextView = (TextView) convertView.findViewById(R.id.durationTextView);
 
                 convertView.setTag(viewHolder);
             } else {
@@ -96,28 +115,14 @@ public class MusicListViewAdapter extends BaseAdapter implements PinnedSectionLi
         return convertView;
     }
 
-    public int getCount() {
-        return musicList.size();
-    }
-
-    public Music getItem(int position) {
-        return musicList.get(position);
-    }
-
-    public long getItemId(int position) {
-        return position;
-    }
-
-    public boolean isItemViewTypePinned(int viewType) {
-        return viewType == VIEW_TYPE_HEADER;
-    }
-
-    public int getViewTypeCount() {
-        return 2;
-    }
-
+    @Override
     public int getItemViewType(int position) {
         return indexList.contains(position) ? VIEW_TYPE_HEADER : VIEW_TYPE_MUSIC;
+    }
+
+    @Override
+    public int getViewTypeCount() {
+        return 2;
     }
 
     public void setList(List<Music> musics) {
@@ -134,56 +139,47 @@ public class MusicListViewAdapter extends BaseAdapter implements PinnedSectionLi
         return !indexList.contains(position);
     }
 
-    private void initData() {
-        TreeMap<String, ArrayList<Music>> indexMap = MusicUtils.getIndexMap();
+    public int getPosition(String key) {
+        Integer position = selector.get(key);
+        return position == null ? -1 : position;
+    }
 
-        for (Music music : musicList) {
-            String initLetter = CharacterParser.getInitLetter(music.getTitle());
-            ArrayList<Music> letterList = indexMap.get(initLetter);
-            if (letterList == null) {
-                letterList = new ArrayList<>();
-            }
-            letterList.add(music);
-            indexMap.put(initLetter, letterList);
-        }
+    private void initData() {
+        TreeMap<String, ArrayList<Music>> indexMap = MusicUtils.getIndexMap(musicList);
 
         int count = 0;
         selector.clear();
         indexList.clear();
         musicList.clear();
         for (Map.Entry<String, ArrayList<Music>> entry : indexMap.entrySet()) {
-            String key = entry.getKey();
             Music music = new Music();
-            music.setTitle(key);
+            music.setTitle(entry.getKey());
 
-            ArrayList<Music> values = entry.getValue();
-            selector.put(key, count);
+            selector.put(entry.getKey(), count);
             indexList.add(count);
             musicList.add(music);
-            musicList.addAll(values);
-            count += values.size() + 1;
+            musicList.addAll(entry.getValue());
+            count += entry.getValue().size() + 1;
         }
     }
 
     private static class HeaderViewHolder {
 
-        private TextView headerTextView;
+        @BindView(R.id.headerTextView) TextView headerTextView;
 
         HeaderViewHolder(View convertView) {
-            headerTextView = (TextView) convertView.findViewById(R.id.headerTextView);
+            ButterKnife.bind(this, convertView);
         }
     }
 
     private static class MusicViewHolder {
 
-        TextView nameTextView;
-        TextView artistTextView;
-        TextView durationTextView;
+        @BindView(R.id.nameTextView) TextView nameTextView;
+        @BindView(R.id.artistTextView) TextView artistTextView;
+        @BindView(R.id.durationTextView) TextView durationTextView;
 
         MusicViewHolder(View convertView) {
-            nameTextView = (TextView) convertView.findViewById(R.id.nameTextView);
-            artistTextView = (TextView) convertView.findViewById(R.id.artistTextView);
-            durationTextView = (TextView) convertView.findViewById(R.id.durationTextView);
+            ButterKnife.bind(this, convertView);
         }
     }
 }
